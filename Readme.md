@@ -5,7 +5,7 @@ This repo contains set of useful python functions for working in blender.
 Copy all ``*.py`` files to ``<blender.exe_path>/<blender_version>/python/lib/site-packages``. For me it is: 
 ```D:\Program Files\Blender Foundation\Blender 2.91\2.91\python\lib\site-packages```
 
-# Usage
+# Example usage
 In blender go to ``Scripting`` tab and write 
 ```
 import blender_customs, weights_paints
