@@ -52,7 +52,7 @@ def rotate_bone(bones, angles, apply_rest=False):
         if apply_rest: bpy.ops.pose.armature_apply(selected=False)
 
 
-def scale_bones(bones, X=1.0, Y=1.0, Z=1.0, inherit_scale = False):
+def scale_bones(bones, scales, inherit_scale = False):
     for armature in [ob for ob in bpy.data.objects if ob.type == 'ARMATURE']:
         if armature is None: continue
         for bone in armature.data.bones:
@@ -61,7 +61,7 @@ def scale_bones(bones, X=1.0, Y=1.0, Z=1.0, inherit_scale = False):
         for bone_name in bones:
             bone = armature.pose.bones.get(bone_name)
             if bone is None: continue
-            bone.scale = (X, Y, Z)
+            bone.scale = (scales[0], scales[1], scales[2])
 
 
 def file_to_json(file):
@@ -261,4 +261,48 @@ def remove_all_dummy_vgs():
             if mtvg:
                 print(f'Removing vg {vgn.name} in {ob.name}')
                 ob.vertex_groups.remove(vgn) 
+
+def merge_all_meshes():
+    merge_uvs()
+    bpy.ops.object.mode_set(mode='OBJECT')
+    bpy.ops.object.select_all(action='DESELECT')
+    for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
+        ob.select_set(True)
+    bpy.ops.object.join()
+
+def apply_arm_changes():
+    merge_all_meshes()
+    bpy.ops.object.mode_set(mode='OBJECT')
+    bpy.ops.object.select_all(action='DESELECT')
+    
+    #for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
+    for ob in bpy.data.objects:
+        if ob.type != 'MESH': continue
+        #if len(ob.modifiers) > 1: continue
+        print(ob.name, len(ob.modifiers), ob.modifiers)
+        bpy.ops.object.select_all(action='DESELECT')
+        ob.select_set(True)
+        for mSrc in ob.modifiers:
+            #bpy.ops.object.modifier_copy(modifier=mSrc.name)
+            name = mSrc.name
+            break
+        bpy.ops.object.modifier_copy(modifier=mSrc.name)
+        bpy.ops.object.modifier_apply(modifier=name)
+        bpy.ops.object.select_all(action='DESELECT')
+        ob.select_set(False)
+    for ob in [ob for ob in bpy.data.objects if ob.type == 'ARMATURE']:
+        arm = ob    
+        bpy.context.view_layer.objects.active = arm
+        bpy.ops.object.mode_set(mode='POSE')
+        bpy.ops.pose.armature_apply(selected=False)
+        bpy.ops.object.mode_set(mode='OBJECT')
+        return
+
+def test():
+    merge_all_meshes()
+    scale_bones(['Arm_1_L','Arm_1_R','Clavicle_Assist_L','Clavicle_Assist_R','','','Clavicle_L','Clavicle_R','','',''], [1,1.5,1.5])
+    scale_bones(['Elbow_L','Elbow_R','Arm_2_L','Arm_2_R','Wrist_L','Wrist_R','Wrist_Assist_R','Wrist_Assist_L','','',''], [1,1.3,1.3])
+    scale_bones(['Spine_2','Spine_1','Neck','Leg_1_L','Leg_1_R','Leg_2_L','Leg_2_R','Knee_L','Knee_R','Ankle_Assist_L',''], [1.25,1,1.25])
+
+    apply_arm_changes()
 
