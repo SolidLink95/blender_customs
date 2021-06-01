@@ -302,7 +302,9 @@ def test():
     merge_all_meshes()
     scale_bones(['Arm_1_L','Arm_1_R','Clavicle_Assist_L','Clavicle_Assist_R','','','Clavicle_L','Clavicle_R','','',''], [1,1.5,1.5])
     scale_bones(['Elbow_L','Elbow_R','Arm_2_L','Arm_2_R','Wrist_L','Wrist_R','Wrist_Assist_R','Wrist_Assist_L','','',''], [1,1.3,1.3])
-    scale_bones(['Spine_2','Spine_1','Neck','Leg_1_L','Leg_1_R','Leg_2_L','Leg_2_R','Knee_L','Knee_R','Ankle_Assist_L',''], [1.25,1,1.25])
+    scale_bones(['Spine_2','Spine_1','Neck','Leg_1_L','Leg_1_R','Leg_2_L','Leg_2_R','Knee_L','Knee_R','',''], [1.25,1,1.25])
+    scale_bones(['Ankle_L','Ankle_R','Ankle_Assist_R','','','','','','','Ankle_Assist_L',''], [1.25,1,1.25])
 
-    apply_arm_changes()
+    #apply_arm_changes()
 
+#test()
