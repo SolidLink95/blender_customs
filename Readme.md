@@ -35,7 +35,7 @@ blender_customs.merge_uvs()
 - ``get_parents_bones_list()`` : returns list of lists of all parents bones to existing bones (iterates on all armature objects),
 - ``pair_rest_bones(data)`` : returns bones unedited by ``transfer_weights_from_json()``
 - ``transfer_weights_from_json(json_file)`` : converts all meshes vertex groups on scene to new armature type, basing on json input; vertex groups not specified in json input will be merged with closest parent bone in new armature type;
-- ``textures_to_json()`` : returns json with all meshes, its materials and textures full filepaths
+- ``textures_to_json()`` : returns json with all meshes, its materials and textures full filepaths. 
 Example:
 ```
 {
@@ -59,7 +59,7 @@ Example:
     }
 }
 ```
-- ``meshes_to_images()`` : renames all meshes with at least 1 material to its image name (meshes with no materials and with no textures are skipped); if mesh has more than 1 material the first one taken
+- ``meshes_to_images()`` : renames all meshes with at least 1 material to its image name (meshes with no materials and with no textures are skipped); if mesh has more than 1 material the first one taken. 
 Input json example:
 ```
 {
