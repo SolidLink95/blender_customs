@@ -118,7 +118,7 @@ def merge_vgs(ob, vgname1, vgname2):
             vgroup.add([id], sum ,'REPLACE')
     update_progress('Merging', 1)
 
-def transfer_weights_w_weight(obname, vgname2, WEIGHT):
+def set_weight(obname, vgname2, WEIGHT):
     ob = bpy.context.scene.objects[obname]  
     if ob is None: return
     if ob.vertex_groups.get(vgname2) is None:
@@ -308,3 +308,26 @@ def test():
     #apply_arm_changes()
 
 #test()
+def textures_to_json():
+    res = {}
+    for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
+        #print(f'mesh: {ob.name}')
+        res[ob.name] = { }
+        for mat_slot in [mat_slot for mat_slot in ob.material_slots if mat_slot and mat_slot.material.node_tree]:
+            #if mat_slot.material.node_tree:
+            #print("material:" + str(mat_slot.material.name))
+            res[ob.name][mat_slot.material.name] = []                
+            for x in mat_slot.material.node_tree.nodes:
+                if x.type=='TEX_IMAGE':
+                    res[ob.name][mat_slot.material.name].append(x.image.filepath)
+                    #print(" texture: "+str(x.image.filepath))
+    return res
+
+def meshes_to_images():
+    data = textures_to_json()
+    for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
+        for mat in data[ob.name]:
+            try:
+                ob.name = os.path.basename(data[ob.name][mat][0])
+                break
+            except: pass
