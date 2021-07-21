@@ -36,6 +36,29 @@ blender_customs.merge_uvs()
 - ``pair_rest_bones(data)`` : returns bones unedited by ``transfer_weights_from_json()``
 - ``transfer_weights_from_json(json_file)`` : converts all meshes vertex groups on scene to new armature type, basing on json input; vertex groups not specified in json input will be merged with closest parent bone in new armature type;
 - ``textures_to_json()`` : returns json with all meshes, its materials and textures full filepaths
+Example:
+```
+{
+    "Arm_225__Mt_Upper_225": {
+        "Mt_Upper_225.003": [
+            "C:\\Users\\user\\Documents\\botw\\work\\Armor_225_Upper.dae\\Armor_225_Upper_Alb.png",
+            "C:\\Users\\user\\Documents\\botw\\work\\Armor_225_Upper.dae\\Armor_225_Upper_Spm.png"
+        ]
+    },
+    "Belt_225__Mt_Belt_225": {
+        "Mt_Belt_225.003": [
+            "C:\\Users\\user\\Documents\\botw\\work\\Armor_225_Upper.dae\\Armor_225_Belt_Alb.png",
+            "C:\\Users\\user\\Documents\\botw\\work\\Armor_225_Upper.dae\\Armor_225_Belt_Spm.png"
+        ]
+    },
+    "Skin_225__Mt_Upper_Skin": {
+        "Mt_Upper_Skin.003": [
+            "C:\\Users\\user\\Documents\\botw\\work\\Armor_225_Upper.dae\\Link_Skin_Alb.png",
+            "C:\\Users\\user\\Documents\\botw\\work\\Armor_225_Upper.dae\\Link_Skin_Spm.png"
+        ]
+    }
+}
+```
 - ``meshes_to_images()`` : renames all meshes with at least 1 material to its image name (meshes with no materials and with no textures are skipped); if mesh has more than 1 material the first one taken
 Input json example:
 ```
