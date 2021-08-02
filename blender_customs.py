@@ -331,3 +331,23 @@ def meshes_to_images():
                 ob.name = os.path.basename(data[ob.name][mat][0])
                 break
             except: pass
+
+def move_bone(name, tab, fr_count):
+    for ob in [ob for ob in bpy.data.objects if ob.type == 'ARMATURE']:
+        arm = ob    
+        bpy.context.view_layer.objects.active = arm
+        bpy.ops.object.mode_set(mode='POSE')
+        for fr in range(fr_count):
+            bpy.context.scene.frame_set(fr)
+            #name = "Skl_Root"
+            pb = ob.pose.bones.get(name) # None if no bone named name
+
+            X = pb.location[0] + tab[0]
+            Y = pb.location[1] + tab[1]
+            Z = pb.location[2] + tab[2]
+            pb.location = (X, Y, Z)
+            pb.keyframe_insert("location", frame=fr)
+        bpy.context.scene.frame_set(0)
+
+
+#move_bone('Skl_Root', [0,-0.343088,0], 140)
