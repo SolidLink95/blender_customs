@@ -349,5 +349,14 @@ def move_bone(name, tab, fr_count):
             pb.keyframe_insert("location", frame=fr)
         bpy.context.scene.frame_set(0)
 
+def rename_bones_vgs(s, skip_bones=[]):
+	for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
+		if ob is None: continue
+		for vgn in ob.vertex_groups:
+			if vgn is None: continue
+			if not vgn.name in skip_bones: vgn.name += s
+	for armature in [ob for ob in bpy.data.objects if ob.type == 'ARMATURE']:
+		for bone in armature.data.bones:
+			if not bone.name in skip_bones: bone.name += s
 
 #move_bone('Skl_Root', [0,-0.343088,0], 140)
