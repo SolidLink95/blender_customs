@@ -2,7 +2,20 @@ import os, sys,requests
 from tkinter import Tcl
 from os import listdir
 from os.path import isfile, join
+from ctypes import windll
+import string
 os.system('cls')
+
+def get_drives():
+    drives = []
+    bitmask = windll.kernel32.GetLogicalDrives()
+    for letter in string.ascii_uppercase:
+        if bitmask & 1:
+            drives.append(letter)
+        bitmask >>= 1
+
+    return drives
+
 
 def dirs_to_list(mypath=os.getcwd()):
     return [f for f in listdir(mypath) if not isfile(join(mypath, f))]
@@ -24,6 +37,13 @@ def getListOfFiles(dirName=os.getcwd()):
     
 
 def get_blender_path():
+    drives = get_drives()
+    drive = ''
+    for d in drives:
+        if os.path.exists(f'{d}:\\Program Files\\Blender Foundation'):
+            drive = d
+            break
+    if not drive: sys.exit("Could not find Blender installed on this machine. Please install blender_customs manually")
     PATH = 'C:\\Program Files\\Blender Foundation'
     ver = sort_files_like_windows(dirs_to_list(PATH))[-1]
     PATH = os.path.join(PATH, ver)

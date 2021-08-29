@@ -298,16 +298,7 @@ def apply_arm_changes():
         bpy.ops.object.mode_set(mode='OBJECT')
         return
 
-def test():
-    merge_all_meshes()
-    scale_bones(['Arm_1_L','Arm_1_R','Clavicle_Assist_L','Clavicle_Assist_R','','','Clavicle_L','Clavicle_R','','',''], [1,1.5,1.5])
-    scale_bones(['Elbow_L','Elbow_R','Arm_2_L','Arm_2_R','Wrist_L','Wrist_R','Wrist_Assist_R','Wrist_Assist_L','','',''], [1,1.3,1.3])
-    scale_bones(['Spine_2','Spine_1','Neck','Leg_1_L','Leg_1_R','Leg_2_L','Leg_2_R','Knee_L','Knee_R','',''], [1.25,1,1.25])
-    scale_bones(['Ankle_L','Ankle_R','Ankle_Assist_R','','','','','','','Ankle_Assist_L',''], [1.25,1,1.25])
 
-    #apply_arm_changes()
-
-#test()
 def textures_to_json():
     res = {}
     for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
@@ -359,4 +350,41 @@ def rename_bones_vgs(s, skip_bones=[]):
 		for bone in armature.data.bones:
 			if not bone.name in skip_bones: bone.name += s
 
+def reset_broken_mats(mode='fbx'):
+    data = textures_to_json()
+    for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']: ob.data.materials.clear()
+    for image in bpy.data.images:   bpy.data.images.remove(image)
+    for mat in bpy.data.materials:   bpy.data.materials.remove(mat)
+    if mode.lower() == 'fbx': i = -1
+    else: i = 0
+    for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
+        if not data[ob.name]: continue
+        for elem in data[ob.name]: mat_name = elem
+        if not data[ob.name][mat_name]: continue
+        tex_name = data[ob.name][mat_name][i]
+        mat = bpy.data.materials.get(mat_name)
+        if mat is None: mat = bpy.data.materials.new(name=mat_name)
+        if ob.data.materials:
+            ob.data.materials[0] = mat
+        else:
+            ob.data.materials.append(mat)
+            
+        mat.use_nodes = True
+        bsdf = mat.node_tree.nodes["Principled BSDF"]
+        texImage = mat.node_tree.nodes.new('ShaderNodeTexImage')
+        texImage.image = bpy.data.images.load(tex_name)
+        mat.node_tree.links.new(bsdf.inputs['Base Color'], texImage.outputs['Color'])
+        print(f'Set tex {tex_name} for {ob.name} in material {mat_name}')
+
 #move_bone('Skl_Root', [0,-0.343088,0], 140)
+
+def test():
+    merge_all_meshes()
+    scale_bones(['Arm_1_L','Arm_1_R','Clavicle_Assist_L','Clavicle_Assist_R','','','Clavicle_L','Clavicle_R','','',''], [1,1.5,1.5])
+    scale_bones(['Elbow_L','Elbow_R','Arm_2_L','Arm_2_R','Wrist_L','Wrist_R','Wrist_Assist_R','Wrist_Assist_L','','',''], [1,1.3,1.3])
+    scale_bones(['Spine_2','Spine_1','Neck','Leg_1_L','Leg_1_R','Leg_2_L','Leg_2_R','Knee_L','Knee_R','',''], [1.25,1,1.25])
+    scale_bones(['Ankle_L','Ankle_R','Ankle_Assist_R','','','','','','','Ankle_Assist_L',''], [1.25,1,1.25])
+
+    #apply_arm_changes()
+
+#test()
