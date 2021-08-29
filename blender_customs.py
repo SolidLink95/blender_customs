@@ -361,20 +361,24 @@ def reset_broken_mats(mode='fbx'):
         if not data[ob.name]: continue
         for elem in data[ob.name]: mat_name = elem
         if not data[ob.name][mat_name]: continue
-        tex_name = data[ob.name][mat_name][i]
-        mat = bpy.data.materials.get(mat_name)
-        if mat is None: mat = bpy.data.materials.new(name=mat_name)
-        if ob.data.materials:
-            ob.data.materials[0] = mat
-        else:
-            ob.data.materials.append(mat)
-            
-        mat.use_nodes = True
-        bsdf = mat.node_tree.nodes["Principled BSDF"]
-        texImage = mat.node_tree.nodes.new('ShaderNodeTexImage')
-        texImage.image = bpy.data.images.load(tex_name)
-        mat.node_tree.links.new(bsdf.inputs['Base Color'], texImage.outputs['Color'])
-        print(f'Set tex {tex_name} for {ob.name} in material {mat_name}')
+        try:
+            tex_name = data[ob.name][mat_name][i]
+            mat = bpy.data.materials.get(mat_name)
+            if mat is None: mat = bpy.data.materials.new(name=mat_name)
+            if ob.data.materials:
+                ob.data.materials[0] = mat
+            else:
+                ob.data.materials.append(mat)
+                
+            mat.use_nodes = True
+            bsdf = mat.node_tree.nodes["Principled BSDF"]
+            texImage = mat.node_tree.nodes.new('ShaderNodeTexImage')
+            texImage.image = bpy.data.images.load(tex_name)
+            mat.node_tree.links.new(bsdf.inputs['Base Color'], texImage.outputs['Color'])
+            print(f'Set tex {tex_name} for {ob.name} in material {mat_name}')
+        except:
+            pass
+        
 
 #move_bone('Skl_Root', [0,-0.343088,0], 140)
 
