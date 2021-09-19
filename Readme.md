@@ -162,3 +162,14 @@ etc.
 
 - ``reset_broken_mats(mode='fbx')`` : sometimes materials are broken/inside out, this function changes them to default blender materials. Choose mode ``fbx`` for imported fbx files and any other string (``dae``, empty string, etc) for other mode.
 
+- ``mods_to_json()`` : returns all meshes and their modifiers in json format. Example:
+
+```{
+   "War.001":["Armature.001"],
+   "War.002":["Armature.001"],
+   "War.003":["Armature.001"],
+   "War.004":["Armature.001"],
+   "War.005":["Armature.001"]
+}```
+
+- ``apply_armatures()`` : for each mesh an armature modifier is copied and applied, then their armatures poses are applied as rest pose.

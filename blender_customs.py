@@ -380,15 +380,39 @@ def reset_broken_mats(mode='fbx'):
             pass
         
 
+def mods_to_json():
+    res = {}
+    for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
+        res[ob.name] = []
+        for mSrc in ob.modifiers:
+            res[ob.name].append(mSrc.name)
+    return res
+
+def apply_armatures():
+    res = mods_to_json()
+    bpy.ops.object.mode_set(mode='OBJECT')
+    bpy.ops.object.select_all(action='DESELECT')
+    for obname in res:
+        ob = bpy.context.scene.objects[obname]  
+        bpy.context.view_layer.objects.active = ob
+        mod_name = res[obname][0]
+        bpy.ops.object.modifier_copy(modifier=mod_name)
+        bpy.ops.object.modifier_apply(modifier=mod_name)
+        bpy.ops.object.select_all(action='DESELECT')
+    for arm in [ob for ob in bpy.data.objects if ob.type == 'ARMATURE']:
+        bpy.context.view_layer.objects.active = arm
+        bpy.ops.object.mode_set(mode='POSE')
+        bpy.ops.pose.armature_apply(selected=False)
+        bpy.ops.object.mode_set(mode='OBJECT')
+
 #move_bone('Skl_Root', [0,-0.343088,0], 140)
 
 def test():
-    merge_all_meshes()
     scale_bones(['Arm_1_L','Arm_1_R','Clavicle_Assist_L','Clavicle_Assist_R','','','Clavicle_L','Clavicle_R','','',''], [1,1.5,1.5])
     scale_bones(['Elbow_L','Elbow_R','Arm_2_L','Arm_2_R','Wrist_L','Wrist_R','Wrist_Assist_R','Wrist_Assist_L','','',''], [1,1.3,1.3])
     scale_bones(['Spine_2','Spine_1','Neck','Leg_1_L','Leg_1_R','Leg_2_L','Leg_2_R','Knee_L','Knee_R','',''], [1.25,1,1.25])
     scale_bones(['Ankle_L','Ankle_R','Ankle_Assist_R','','','','','','','Ankle_Assist_L',''], [1.25,1,1.25])
 
-    #apply_arm_changes()
+    apply_armatures()
 
 #test()
