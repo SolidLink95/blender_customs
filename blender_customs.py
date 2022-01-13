@@ -302,16 +302,9 @@ def apply_arm_changes():
 def textures_to_json():
     res = {}
     for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
-        #print(f'mesh: {ob.name}')
-        res[ob.name] = { }
+        res[ob.name] = {}
         for mat_slot in [mat_slot for mat_slot in ob.material_slots if mat_slot and mat_slot.material.node_tree]:
-            #if mat_slot.material.node_tree:
-            #print("material:" + str(mat_slot.material.name))
-            res[ob.name][mat_slot.material.name] = []                
-            for x in mat_slot.material.node_tree.nodes:
-                if x.type=='TEX_IMAGE':
-                    res[ob.name][mat_slot.material.name].append(x.image.filepath)
-                    #print(" texture: "+str(x.image.filepath))
+            res[ob.name][mat_slot.material.name] = [x.image.filepath for x in mat_slot.material.node_tree.nodes if x.type=='TEX_IMAGE']              
     return res
 
 def meshes_to_images():
@@ -359,8 +352,9 @@ def reset_broken_mats(mode='fbx'):
     else: i = 0
     for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
         if not data[ob.name]: continue
-        for elem in data[ob.name]: mat_name = elem
-        if not data[ob.name][mat_name]: continue
+        if data[ob.name]: mat_name = data[ob.name][0]
+        else: continue
+        if not data[ob.name][0]: continue
         try:
             tex_name = data[ob.name][mat_name][i]
             mat = bpy.data.materials.get(mat_name)
@@ -373,7 +367,11 @@ def reset_broken_mats(mode='fbx'):
             mat.use_nodes = True
             bsdf = mat.node_tree.nodes["Principled BSDF"]
             texImage = mat.node_tree.nodes.new('ShaderNodeTexImage')
-            texImage.image = bpy.data.images.load(tex_name)
+            try:
+                texImage.image = bpy.data.images[os.path.basename(tex_name)]
+            except Exception as err:
+                print(err)
+                texImage.image = bpy.data.images.load(tex_name)
             mat.node_tree.links.new(bsdf.inputs['Base Color'], texImage.outputs['Color'])
             print(f'Set tex {tex_name} for {ob.name} in material {mat_name}')
         except:

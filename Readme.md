@@ -44,25 +44,14 @@ blender_customs.merge_uvs()
 --inherit_scale : if set to True, all children bones will be affected by scaling (False by default)
 
 - ``file_to_json(file)`` : dumps file to json,
-
 - ``json_to_file(file, x)`` : dumps json to file,
-
 - ``update_progress(job_title, progress)`` : function for progress bar,
-
 - ``rev_json(data)`` : reverses json (does not validate duplicates),
-
 - ``merge_vgs(ob, vgname1, vgname2)`` : merges 2 vertex groups vgname1 and vgname2 in mesh type object ob;
-
 - ``set_weight(obname, vgname2, WEIGHT)`` : sets weight to WEIGHT float value on all vertices on mesh object named obname,
-
 - ``transfer_weights(ob, vgname1, vgname2)`` : same as merge_vgs, with additional input validation,
-
 - ``get_parents_bones_list()`` : returns list of lists of all parents bones to existing bones (iterates on all armature objects),
-
 - ``pair_rest_bones(data)`` : returns bones unedited by ``transfer_weights_from_json()``
-
-- ``transfer_weights_from_json(json_file)`` : converts all meshes vertex groups on scene to new armature type, basing on json input; vertex groups not specified in json input will be merged with closest parent bone in new armature type;
-
 - ``textures_to_json()`` : returns json with all meshes, its materials and textures full filepaths. 
 
 Example:
@@ -90,9 +79,7 @@ Example:
 }
 ```
 
-
-- ``meshes_to_images()`` : renames all meshes with at least 1 material to its image name (meshes with no materials and with no textures are skipped); if mesh has more than 1 material the first one taken. 
-
+- ``transfer_weights_from_json(json_file)`` : converts all meshes vertex groups on scene to new armature type, basing on json input; vertex groups not specified in json input will be merged with closest parent bone in new armature type;
 
 Input json example:
 
@@ -144,14 +131,10 @@ etc.
             "Bone_LR_Clavicle_L": 0.2980392277240753,
             "Bone_LR_Spine2": 0.7019608020782471
         }, etc
-   ```
-   
+```
+
 - ``merge_all_meshes()`` : merges all meshes on scene into a single mesh
-
 - ``remove_all_vertex_colors()`` : removes all vertex colors layers from all meshes
-
-- ``merge_all_meshes()`` : merges all meshes into 1 mesh
-
 - ``textures_to_json()`` : return json for all meshes, its materials and textures full paths. Example:
 
 ```{'arms': {'Mt_Sword_001_0_Guardian': ['F:\\Sync\\Sleeping_Guardian7_DIFF.6.png']}}```
@@ -176,4 +159,3 @@ etc.
 
 ```
 
-- ``apply_armatures()`` : for each mesh an armature modifier is copied and applied, then their armatures poses are applied as rest pose.
