@@ -1,416 +1,425 @@
-import bpy, os, json,sys, time
+import hashlib
+import bpy
+import json
+import os
 os.system('cls')
+for mat in bpy.data.materials: # fix transparent materials
+	mat.blend_method = 'OPAQUE'
 
-def merge_uvs():
-    for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
-        for uvmap in ob.data.uv_layers:
-            uvmap.name = 'UVMap'
+def dict_to_file(file, x, sort_keys=True, indent=4):
+    """Dump dictionary to json file"""
+    with open(file, 'w') as f:
+        json.dump(x, f, indent=indent, sort_keys=sort_keys)
 
-def print_weights():
-    for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
-        for id, vert in enumerate(ob.data.vertices):
-            available_groups = [v_group_elem.group for v_group_elem in vert.groups]
-            for vgn in ob.vertex_groups:
-                if vgn is None: continue
-                if ob.vertex_groups[vgn.name].index in available_groups:
-                    print(ob.name, vgn.name, id, ob.vertex_groups[vgn.name].weight(id))
+def file_to_dict(file):
+    """Dump json file to dict variable"""
+    with open(file) as f:
+        return json.load(f)
 
-def weights_to_json():
-    res = {}
+def rev_json(data):
+    """Reverses dictionary (some data may be lost in the process!)"""
+    return {item : key for key, item in data.items()}
+
+def scene_to_json(dest_file):
+	"""Backup all meshes location, rotation and scales to json file"""
+	res = {}
+	for ob in [ob for ob in bpy.data.objects if ob.type=='MESH']:
+		if '.' in ob.name:
+			name = ob.name[:-4]
+		else:
+			name = ob.name
+		if name not in res:
+			res[name] = []
+		tmp = {
+			"location": [x for x in ob.location],
+			"rotation": [x for x in ob.rotation_euler],
+			"scale": [x for x in ob.scale]
+		}
+		res[name].append(tmp)
+	with open(dest_file, 'w') as fp:
+		json.dump(res, fp)
+
+def reset_broken_mats():
+    """fix transparent materials"""
+    for mat in bpy.data.materials: 
+        mat.blend_method = 'OPAQUE'
+
+def move_objects(objs, wector):
+	"""Move list of objects by vector"""
+    for ob in objs:
+        if wector:
+            ob.location.x += float(wector[0])
+            ob.location.y += float(wector[1])
+            ob.location.z += float(wector[2])
+
+def separate_by_materials(objs=None):
+	"""Select objects, go to edit mode, select all, split by materials"""
+    if objs is None:
+        objs = [ob for ob in bpy.data.objects if ob.type=='MESH']
+    if objs:
+        bpy.context.view_layer.objects.active = objs[0]
+        bpy.ops.object.mode_set(mode='OBJECT')
+        bpy.ops.object.select_all(action='DESELECT')
+        for ob in objs:
+            ob.select_set(True)
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.mesh.separate(type='MATERIAL')
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+def merge_objs(objs, rename_uvs=True):
+	"""Merge objects from provided list"""
+    bpy.ops.object.select_all(action='DESELECT')
+    if len(objs) >= 2: 
+        if rename_uvs:
+            merge_uvs(objs)
+        bpy.context.view_layer.objects.active = objs[0]
+        for ob in objs:
+            ob.select_set(True)
+        bpy.ops.object.join()
+        bpy.ops.object.select_all(action='DESELECT')
+
+def merge_all_objs():
+    """Merge all mesh objects from scene"""
+    objs = [ob for ob in bpy.data.objects if ob.type=='MESH']
+    merge_objs(objs)
+
+def scale_scene(w):
+	"""Scale all objects in a scene then scale them"""
+    bpy.ops.object.select_all(action='DESELECT')
+    bpy.ops.object.select_all(action='SELECT')
+    bpy.ops.transform.resize(value=w, orient_type='GLOBAL', orient_matrix=((1, 0, 0), (0, 1, 0), (0, 0, 1)), orient_matrix_type='GLOBAL', mirror=True, use_proportional_edit=False, proportional_edit_falloff='SMOOTH', proportional_size=1, use_proportional_connected=False, use_proportional_projected=False)
+    bpy.ops.object.select_all(action='DESELECT')
+
+def apply_transform(objs=None):
+	"""Apply all transforms to list of objects"""
+    bpy.ops.object.select_all(action='DESELECT')
+    if objs is None: objs = [ob for ob in bpy.data.objects if ob.type == 'MESH']
+    if not objs: return
+    bpy.context.view_layer.objects.active = objs[0]
+    for ob in objs:
+        ob.select_set(True)
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    bpy.ops.object.select_all(action='DESELECT')
+
+def file_to_md5(file):
+	"""Return MD5 hash of a file in hex format"""
+    with open(file, 'rb') as f:
+        return hashlib.md5(f.read()).hexdigest().upper() 
+
+def fix_dds_textures(main_path):
+	"""Change all materials primary dds image (if exists) to png file named by dds file MD5 hash"""
+    for mat in bpy.data.materials:
+        mat.blend_method = 'OPAQUE'
+    for mat in [mat for mat in bpy.data.materials if  mat and mat.node_tree]:
+        print(mat.name)
+        for x in [x for x in mat.node_tree.nodes if x.type=='TEX_IMAGE' and not '.0' in x.name]:
+            dds = x.image.filepath
+            if dds.lower().endswith('dds'):
+                tex_name = file_to_md5(dds)+ '.png'
+                tex_fullpath = os.path.join(main_path, tex_name)
+                im = bpy.data.images.get(tex_name)
+                if im is None:
+                    im = bpy.data.images.load(tex_fullpath)
+                x.image = im
+                mat.name = tex_name[:-4]
+  
+def meshes_to_tex_names():
+	"""Rename objects to the image from the first found material slot"""
     for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
-        res[ob.name] = {
-            "vertex_groups": {}
-        }
-        for id, vert in enumerate(ob.data.vertices):
-            available_groups = [v_group_elem.group for v_group_elem in vert.groups]
-            for vgn in ob.vertex_groups:
-                if vgn is None: continue
-                if not vgn.name in res[ob.name]["vertex_groups"]: res[ob.name]["vertex_groups"][vgn.name] = []
-                if ob.vertex_groups[vgn.name].index in available_groups:
-                    res[ob.name]["vertex_groups"][vgn.name].append([id, ob.vertex_groups[vgn.name].weight(id)])
-                    print(ob.name, vgn.name, id, ob.vertex_groups[vgn.name].weight(id))
-                if res[ob.name]["vertex_groups"][vgn.name] == []: del res[ob.name]["vertex_groups"][vgn.name]
+        for mat_slot in [mat_slot for mat_slot in ob.material_slots if mat_slot and mat_slot.material.node_tree]:
+            for t in [os.path.basename(x.image.filepath) for x in mat_slot.material.node_tree.nodes if x.type=='TEX_IMAGE' and not '.0' in x.name]:
+                ob.name = t
+
+def merge_by_names():
+	"""Merge all duplicated mesh objects on the scene"""
+    for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH' and not '.0' in ob.name]:
+        objs = [ob1 for ob1 in bpy.data.objects if ob1.type == 'MESH' and ob1.name.startswith(ob.name)]
+        merge_objs(objs)
+    for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH' and '.0' in ob.name]:
+        ob.name = ob.name[:-4] # Remove all .xxx from object names
+    for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
+        ob.data.name = ob.name # Rename meshes to objects names
+    
+
+
+def transform_by_ob(obname):
+	"""Transform entire scene by a specific object"""
+    root_ob = bpy.data.objects[obname]
+    wector = [float(root_ob.location.x), float(root_ob.location.y), float(root_ob.location.z)]
+    objs = [ob for ob in bpy.data.objects if ob.type == 'MESH']
+    move_objects(objs, wector)
+    #apply_transform()
+
+def leave_1_mat():
+	"""Remove all materials slots from meshes, except for the last one"""
+    bpy.ops.object.select_all(action='DESELECT')
+    for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
+         size = len([mat_slot for mat_slot in ob.material_slots])
+         if size > 1:
+             bpy.context.view_layer.objects.active = ob
+             for i in range(size-1):
+                 bpy.context.object.active_material_index = 0 #select the top material
+                 bpy.ops.object.material_slot_remove() #delete it
+                 
+
+
+def get_meshes_by_armature(arm):
+    """Return list of mesh objects that has armature modifier pointing to armature object arm"""
+    res = []
+    for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
+        mods = [m for m in ob.modifiers if m.type == 'ARMATURE']
+        if mods:
+            if mods[0].object == arm:
+                res.append(ob)
     return res
 
+def update_bones_dict(data, input_arm, dest_arm, objs):
+    """Add missing bone keys to data dict, which is used for converting input armature to dest. armature.
+    Closest parent bone is assigned to input bone or root bone if none can be found"""
+    missing_vals = []
+    keys = list(data)
+    root_bone = [b for b in dest_arm.data.bones if b.parent is None][0] # get root bone
+    for ob in objs:
+        missing_vals += [vg.name for vg in ob.vertex_groups if vg.name not in keys]
+    if missing_vals:
+        for bone_name in [b for b in list(set(missing_vals)) if input_arm.data.bones.get(b,'')]:
+            bone = input_arm.data.bones.get(bone_name)
+            parent_bone = bone.parent
+            while True:
+                if parent_bone.name in keys:
+                    data[bone_name] = data[parent_bone.name]
+                    print(f'{bone_name} paired with {data[parent_bone.name]}')
+                    break
+                elif parent_bone is None or parent_bone.name==root_bone.name:
+                    data[bone_name] = root_bone.name
+                    break
+                parent_bone = parent_bone.parent
+    return data
 
-def rotate_bone(bones, angles, apply_rest=False):
-    bpy.ops.object.mode_set(mode='OBJECT')
-    bpy.ops.object.select_all(action='DESELECT')
-    for armature in [ob for ob in bpy.data.objects if ob.type == 'ARMATURE']:
-        bpy.context.view_layer.objects.active = armature
-        bpy.ops.object.mode_set(mode='POSE')
-        for bone_name in bones:
-            bone = armature.pose.bones.get(bone_name)
-            if bone is None:
-                print(f'bone {bone_name} not found in {armature.name}')
-                continue
-            bone.rotation_mode = 'XYZ'
-            if angles[0]: bone.rotation_euler.rotate_axis('X', math.radians(angles[0]))
-            if angles[1]: bone.rotation_euler.rotate_axis('Y', math.radians(angles[1]))
-            if angles[2]: bone.rotation_euler.rotate_axis('Z', math.radians(angles[2]))
-            bpy.ops.object.mode_set(mode='OBJECT')
-        if apply_rest: bpy.ops.pose.armature_apply(selected=False)
+def merge_vgs(ob, vgname1, vgname2):
+    """Merge vertex groups"""
+    if (vgname1 in ob.vertex_groups and vgname2 in ob.vertex_groups): 
+        print(f'Merging vg {vgname1} -> {vgname2} in {ob.name}')
+        vgroup = ob.vertex_groups.get(vgname2)   
+        
+        n_verts = float(len(ob.data.vertices))
+        for id, vert in enumerate(ob.data.vertices):
+            update_progress('Merging', (float(id))/n_verts)
+            available_groups = [v_group_elem.group for v_group_elem in vert.groups]
+            A = B = 0
+            if ob.vertex_groups[vgname1].index in available_groups:
+                A = ob.vertex_groups[vgname1].weight(id)
+            if ob.vertex_groups[vgname2].index in available_groups:
+                B = ob.vertex_groups[vgname2].weight(id)
 
+            # only add to vertex group is weight is > 0
+            sum = A + B
+            if sum > 0:
+                vgroup.add([id], sum ,'REPLACE')
+        update_progress('Merging', 1)
 
-def scale_bones(bones, scales, inherit_scale = False):
-    for armature in [ob for ob in bpy.data.objects if ob.type == 'ARMATURE']:
-        if armature is None: continue
-        for bone in armature.data.bones:
-            if bone is None: continue
-            bone.use_inherit_scale = inherit_scale
-        for bone_name in bones:
-            bone = armature.pose.bones.get(bone_name)
-            if bone is None: continue
-            bone.scale = (scales[0], scales[1], scales[2])
+def merge_n_remove(obname, vgname1, vgname2):
+    """Merge vertex groups then remove the first one"""
+    if isinstance(obname, str):
+        ob = bpy.data.objects[obname]  
+    else:
+        ob = obname
+    if ob is not None: 
+        merge_vgs(ob, vgname1, vgname2)
+        vgn = ob.vertex_groups.get(vgname1)
+        if vgn:
+            ob.vertex_groups.remove(vgn) 
 
-
-def file_to_json(file):
-    return json.load(open(file)) 
-
-def json_to_file(file, x):
-    with open(file, 'w') as f:
-        json.dump(x, f, indent=4, sort_keys=True)
-
-def update_progress(job_title, progress):
-    length = 30 # modify this to change the length
+def set_weight(obname, vgname2, WEIGHT):
+    """Set specified weight for all vertices in given mesh object"""
+    if isinstance(obname, str):
+        ob = bpy.data.objects.get(obname)  
+    else:
+        ob = obname
+    if ob is None:
+        print(f'No object named {obname} found in the scene, exiting')
+    else:
+        if ob.vertex_groups.get(vgname2) is None:
+            ob.vertex_groups.new(name=vgname2)
+        vgroup = ob.vertex_groups.get(vgname2)   
+        
+        n_verts = float(len(ob.data.vertices))
+        for id, vert in enumerate(ob.data.vertices):
+            update_progress('Merging', (float(id))/n_verts)
+            vgroup.add([id], WEIGHT ,'REPLACE')
+        update_progress('Merging', 1)
+    
+    
+def update_progress(job_title, progress, length=30):
+    """Progress bar for various functions"""
     block = int(round(length*progress))
     msg = "\r{0}: [{1}] {2}%".format(job_title, "#"*block + "-"*(length-block), round(progress*100, 2))
     if progress >= 1: msg += " DONE\r\n"
     sys.stdout.write(msg)
     sys.stdout.flush()
 
-def rev_json(data):
-    res = { }
-    for elem in data:
-        res[data[elem]] = elem
-    return res
-
-def vgs_to_json_template(output_file):
-    res = {}
-    for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
-        if ob is None: continue
-        for vgn in ob.vertex_groups:
-            if vgn and vgn.name:
-                res[vgn.name] = "asdf"
-    json_to_file(output_file, res)
-    
-def merge_vgs(ob, vgname1, vgname2):
-    if '.0' in vgname1[-4:]:
-        vgname2 = vgname1[:-4]
-
-    if not (vgname1 in ob.vertex_groups and vgname2 in ob.vertex_groups): return
-    print(f'Merging vg {vgname1} -> {vgname2} in {ob.name}')
-    vgroup = ob.vertex_groups.get(vgname2)   
-    
-    n_verts = float(len(ob.data.vertices))
-    for id, vert in enumerate(ob.data.vertices):
-        update_progress('Merging', (float(id))/n_verts)
-        available_groups = [v_group_elem.group for v_group_elem in vert.groups]
-        A = B = 0
-        if ob.vertex_groups[vgname1].index in available_groups:
-            A = ob.vertex_groups[vgname1].weight(id)
-        if ob.vertex_groups[vgname2].index in available_groups:
-            B = ob.vertex_groups[vgname2].weight(id)
-
-        # only add to vertex group is weight is > 0
-        sum = A + B
-        if sum > 0:
-            vgroup.add([id], sum ,'REPLACE')
-    update_progress('Merging', 1)
-
-def set_weight(obname, vgname2, WEIGHT):
-    ob = bpy.context.scene.objects[obname]  
-    if ob is None: return
-    if ob.vertex_groups.get(vgname2) is None:
-        ob.vertex_groups.new(name=vgname2)
-    vgroup = ob.vertex_groups.get(vgname2)   
-    
-    n_verts = float(len(ob.data.vertices))
-    for id, vert in enumerate(ob.data.vertices):
-        update_progress('Merging', (float(id))/n_verts)
-        available_groups = [v_group_elem.group for v_group_elem in vert.groups]
-        if ob.vertex_groups[vgname2].index in available_groups:
-            B = ob.vertex_groups[vgname2].weight(id)
-
-        vgroup.add([id], WEIGHT ,'REPLACE')
-    update_progress('Merging', 1)
-
-
-def transfer_weights(ob, vgname1, vgname2):
-    if ob is None or ob.type != 'MESH': return
-    if not vgname1: return
-    if not vgname2: return
-    if ob.vertex_groups.get(vgname1) is None: return
-    if ob.vertex_groups.get(vgname2) is None:
-        ob.vertex_groups.new(name=vgname2)
-    merge_vgs(ob, vgname1, vgname2)
-    return
-    
-    
-def rename_bones(data):
-    for armature in [ob for ob in bpy.data.objects if ob.type == 'ARMATURE']:
-        done = []
-        for bone in armature.data.bones:
-            pb = armature.pose.bones.get(bone.name)
-            if pb is None: continue
-            if bone.name in data:
-                tmp = armature.pose.bones.get(data[bone.name])
-                if not tmp:
-                    pb.name = data[bone.name]
-    #fix_00_bones()
-    
-def fix_00_bones():
-    for armature in [ob for ob in bpy.data.objects if ob.type == 'ARMATURE']:
-        for bone in armature.data.bones:
-            pb = armature.pose.bones.get(bone.name)
-            if pb is None: continue
-            if '.0' in bone.name: bone.name = bone.name.split('.0')[0]
-
-def get_parents_bones_list():
-    bones = []
-    for armature in [ob for ob in bpy.data.objects if ob.type == 'ARMATURE']:
-        for bone in armature.data.bones:
-            if armature.pose.bones.get(bone.name) is None: continue
-            tmp = [bone.name]
-            parent_bone = bone.parent
-            for i in range(100):
-                if parent_bone is None: break
-                tmp.append(parent_bone.name)
-                parent_bone = parent_bone.parent
-            bones.append(tmp)
-    return bones
-
-def pair_rest_bones(data):
-    bones = get_parents_bones_list()
-    rev_data = rev_json(data)
-    res = { }
-    for bone in bones:
-        if bone[0] in rev_data: continue
-        direct_parent = ''
-        for i in range(1, len(bone)):
-            if bone[i] in rev_data:
-                direct_parent = bone[i]
-                break
-        res[bone[0]] = direct_parent
-    return res
-    
-
-def transfer_weights_from_json(json_file):
-    remove_all_dummy_vgs()
-    data = file_to_json(json_file)
-    rename_bones(data)
-    for elem in data:
-        new_vg = data[elem]
-        for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
-            if not ob.vertex_groups: continue
-            transfer_weights(ob, elem, new_vg)
-    pairs = pair_rest_bones(data)
-    for elem in pairs:
-         new_vg = pairs[elem]
-         for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
-            if not ob.vertex_groups: continue
-            transfer_weights(ob, elem, new_vg)
-    #complete_vgroups()
-    rev_data = rev_json(data)
-    
-    for elem in data:
-        new_vg = data[elem]
-        for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
-            if ob is None: continue
-            for vgn in ob.vertex_groups:
-                if vgn is None: continue
-                mtvg = not any(vgn.index in [g.group for g in v.groups] for v in ob.data.vertices)
-                if not vgn.name in rev_data or mtvg:
-                    print(f'Removing vg {vgn.name} in {ob.name}')
-                    ob.vertex_groups.remove(vgn) 
-    
-    for elem in pairs:
-         new_vg = pairs[elem]
-         for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
-            if ob is None: continue
-            for vgn in ob.vertex_groups:
-                if vgn is None: continue
-                if not vgn.name in rev_data:
-                    print(f'Removing vg {vgn.name} in {ob.name}')
-                    ob.vertex_groups.remove(vgn) 
-                                
-                
-def merge_n_remove(obname, vgname1, vgname2):
-    ob = bpy.context.scene.objects[obname]  
-    if ob is None: return
-    merge_vgs(ob, vgname1, vgname2)
-    vgn = ob.vertex_groups.get(vgname1)
-    if vgn:
-        ob.vertex_groups.remove(vgn) 
-
 def remove_dummy_vgs(obname):
-    ob = bpy.context.scene.objects[obname]  
-    if ob is None or ob.type != 'MESH': return
-    for vgn in ob.vertex_groups:
-        if vgn is None: continue
-        mtvg = not any(vgn.index in [g.group for g in v.groups] for v in ob.data.vertices)
-        if mtvg:
-            ob.vertex_groups.remove(vgn) 
+    """Removes vertex groups if none of the meshes' vertices are weighted to them"""
+    ob = bpy.data.objects.get(obname)
+    if ob and ob.type == 'MESH': 
+        for vgn in ob.vertex_groups:
+            if not any(vgn.index in [g.group for g in v.groups] for v in ob.data.vertices):
+                ob.vertex_groups.remove(vgn) 
 
 def remove_all_dummy_vgs():
+    """Removes vertex groups if none of the meshes' vertices are weighted to them, 
+    works for all mesh objects in the scene"""
     for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
-        if ob is None: continue
         for vgn in ob.vertex_groups:
-            if vgn is None: continue
-            mtvg = not any(vgn.index in [g.group for g in v.groups] for v in ob.data.vertices)
-            if mtvg:
+            if not any(vgn.index in [g.group for g in v.groups] for v in ob.data.vertices):
                 print(f'Removing vg {vgn.name} in {ob.name}')
                 ob.vertex_groups.remove(vgn) 
 
-def merge_all_meshes():
-    merge_uvs()
-    bpy.ops.object.mode_set(mode='OBJECT')
-    bpy.ops.object.select_all(action='DESELECT')
+
+def normalize_vgs():
+    """Merges all vertex groups with duplicate names (vg.001->vg) for all mesh objects"""
     for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
-        ob.select_set(True)
-    bpy.ops.object.join()
+        for vg in [vg for vg in ob.vertex_groups if '.0' not in vg.name]:
+            for i in range(1,100):
+                vg_to_merge = ob.vertex_groups.get(f'{vg.name}.{str(i).zfill(3)}')
+                if vg_to_merge:
+                    merge_n_remove(ob, vg_to_merge.name, vg.name)
+                else:
+                    break
 
-def apply_arm_changes():
-    merge_all_meshes()
+def merge_uvs(objs=None):
+    """Renames all UV maps for all mesh objects. Useful for objects merging"""
+    if objs is None:
+        objs = [ob for ob in bpy.data.objects if ob.type == 'MESH']
+    for ob in objs:
+        for uvmap in ob.data.uv_layers:
+            uvmap.name = 'UVMap'
+
+def separate_by_materials(objs=None):
+	"""Select objects, go to edit mode, select all, split by materials"""
+    if objs is None:
+        objs = [ob for ob in bpy.data.objects if ob.type=='MESH']
+    if objs:
+        bpy.context.view_layer.objects.active = objs[0]
+        bpy.ops.object.mode_set(mode='OBJECT')
+        bpy.ops.object.select_all(action='DESELECT')
+        for ob in objs:
+            ob.select_set(True)
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.mesh.separate(type='MATERIAL')
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+def transfer_weights_from_dict(input_data, input_arm, dest_arm):
+    """Merge and rename vertex groups basing on input dictionary or json file"""
+    # Get input data
+    if isinstance(input_data, str):
+        data = file_to_dict(input_data)
+    else:
+        data = input_data
+    # Get only meshes which have armature modifier tied to input armature
+    objs = get_meshes_by_armature(input_arm)
+    remove_all_dummy_vgs()
+    data = update_bones_dict(data, input_arm, dest_arm, objs) # Update missing keys
+    keys = list(data)
+    items = [item for key, item in data.items()]
+    # Merge vgs
+    for ob in objs:
+        vgns = [vg.name for vg in ob.vertex_groups]
+        for item in items:
+            root_vg = ''
+            for vg in [e for e in vgns if e in keys and data[e] == item]:
+                if root_vg: 
+                    merge_n_remove(ob.name, vg, root_vg)
+                else:
+                    root_vg = vg
+    # rename remaining vgs
+    for ob in objs:
+        for vg in [vg for vg in ob.vertex_groups if data.get(vg.name,'')]:
+            vg.name = data[vg.name]
+    # Set armature modifier to dest. armature
+    for ob in objs:
+        for mod in [m for m in ob.modifiers if m.type == 'ARMATURE']:
+            mod.object = dest_arm
+            break
+    # Check if any vertex group was not processed
+    missing_vals = []
+    for ob in objs:
+        missing_vals += [vg.name for vg in ob.vertex_groups if vg.name in keys]
+    n = ',\n    '
+    if missing_vals:
+        s = f'Warning! There are some unmerged vertex groups:\n{n.join(missing_vals)}'
+    else:
+        s = f'All vertex groups for meshes:\n{n.join([ob.name for ob in objs])}\n'
+        s+= f'linked to armature {input_arm.name} were merged correctly'
+    print(s)
+    return s
+    
+
+def rotate_bone(bones, angles, arm=None, apply_rest=False, rot_mode='XYZ'):
+    """Rotate bones from list of strings by specific value"""
     bpy.ops.object.mode_set(mode='OBJECT')
     bpy.ops.object.select_all(action='DESELECT')
-    
-    #for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
-    for ob in bpy.data.objects:
-        if ob.type != 'MESH': continue
-        #if len(ob.modifiers) > 1: continue
-        print(ob.name, len(ob.modifiers), ob.modifiers)
-        bpy.ops.object.select_all(action='DESELECT')
-        ob.select_set(True)
-        for mSrc in ob.modifiers:
-            #bpy.ops.object.modifier_copy(modifier=mSrc.name)
-            name = mSrc.name
-            break
-        bpy.ops.object.modifier_copy(modifier=mSrc.name)
-        bpy.ops.object.modifier_apply(modifier=name)
-        bpy.ops.object.select_all(action='DESELECT')
-        ob.select_set(False)
-    for ob in [ob for ob in bpy.data.objects if ob.type == 'ARMATURE']:
-        arm = ob    
-        bpy.context.view_layer.objects.active = arm
-        bpy.ops.object.mode_set(mode='POSE')
-        bpy.ops.pose.armature_apply(selected=False)
-        bpy.ops.object.mode_set(mode='OBJECT')
-        return
+    if len(angles) >= 3:
+        if arm is None:
+            arms = [ob for ob in bpy.data.objects if ob.type == 'ARMATURE']
+        else:
+            arms = [arm]
+        for armature in arms:
+            bpy.context.view_layer.objects.active = armature
+            bpy.ops.object.mode_set(mode='POSE')
+            for bone_name in [b for b in bones if b and armature.pose.bones.get(b)]:
+                bone = armature.pose.bones.get(bone_name)
+                bone.rotation_mode = rot_mode
+                for i in range(3):
+                    bone.rotation_euler.rotate_axis(rot_mode[i], math.radians(angles[i]))
+            bpy.ops.object.mode_set(mode='OBJECT')
+    else:
+        print(f'Vector {str(angles)} is invalid for rotation mode {rot_mode}')
 
-
-def textures_to_json():
+def scale_bones(bones, scales, arm=None, inherit_scale=False):
+    """Scale bones from list by given vector of floats"""
+    if len(scales) >= 3:
+        if arm is None:
+                arms = [ob for ob in bpy.data.objects if ob.type == 'ARMATURE']
+            else:
+                arms = [arm]
+        for a in arms:
+            for bone in a.data.bones:
+                bone.use_inherit_scale = inherit_scale
+            for bone in [a.pose.bones.get(b) for b in bones if b in a.pose.bones]:
+                bone.scale = (scales[0], scales[1], scales[2])
+    else:
+        print(f'Vector {str(scales)} is invalid')
+        
+def apply_arm_changes(arm):
+    """Duplicate armature modifier in mesh objects tied linked to arm armature, apply it,
+    then set pose as rest pose"""
+    objs = get_meshes_by_armature(arm)
+    bpy.ops.object.mode_set(mode='OBJECT')
+    bpy.ops.object.select_all(action='DESELECT')
+    for ob in objs:
+        mods = [m for m in ob.modifiers if m.type == 'ARMATURE']
+        if mods:
+            bpy.context.view_layer.objects.active = ob
+            ob.select_set(True)
+            bpy.ops.object.modifier_copy(modifier=mods[0].name)
+            mods_upd = [m for m in ob.modifiers if m.type == 'ARMATURE']
+            bpy.ops.object.modifier_apply(modifier=mods_upd[0].name)
+            ob.select_set(False)
+    bpy.context.view_layer.objects.active = arm
+    bpy.ops.object.mode_set(mode='POSE')
+    bpy.ops.pose.armature_apply(selected=False)
+    bpy.ops.object.mode_set(mode='OBJECT')
+            
+def textures_to_dict():
+    """Return dictionary of all meshes on scene with their respective materials and
+    image textures filepaths"""
     res = {}
     for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
         res[ob.name] = {}
         for mat_slot in [mat_slot for mat_slot in ob.material_slots if mat_slot and mat_slot.material.node_tree]:
             res[ob.name][mat_slot.material.name] = [x.image.filepath for x in mat_slot.material.node_tree.nodes if x.type=='TEX_IMAGE']              
     return res
-
-def meshes_to_images():
-    data = textures_to_json()
-    for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
-        for mat in data[ob.name]:
-            try:
-                ob.name = os.path.basename(data[ob.name][mat][0])
-                break
-            except: pass
-
-def move_bone(name, tab, fr_count):
-    for ob in [ob for ob in bpy.data.objects if ob.type == 'ARMATURE']:
-        arm = ob    
-        bpy.context.view_layer.objects.active = arm
-        bpy.ops.object.mode_set(mode='POSE')
-        for fr in range(fr_count):
-            bpy.context.scene.frame_set(fr)
-            #name = "Skl_Root"
-            pb = ob.pose.bones.get(name) # None if no bone named name
-
-            X = pb.location[0] + tab[0]
-            Y = pb.location[1] + tab[1]
-            Z = pb.location[2] + tab[2]
-            pb.location = (X, Y, Z)
-            pb.keyframe_insert("location", frame=fr)
-        bpy.context.scene.frame_set(0)
-
-def rename_bones_vgs(s, skip_bones=[]):
-	for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
-		if ob is None: continue
-		for vgn in ob.vertex_groups:
-			if vgn is None: continue
-			if not vgn.name in skip_bones: vgn.name += s
-	for armature in [ob for ob in bpy.data.objects if ob.type == 'ARMATURE']:
-		for bone in armature.data.bones:
-			if not bone.name in skip_bones: bone.name += s
-
-def reset_broken_mats(mode='fbx'):
-    data = textures_to_json()
-    for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']: ob.data.materials.clear()
-    for image in bpy.data.images:   bpy.data.images.remove(image)
-    for mat in bpy.data.materials:   bpy.data.materials.remove(mat)
-    if mode.lower() == 'fbx': i = -1
-    else: i = 0
-    for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
-        if not data[ob.name]: continue
-        if data[ob.name]: mat_name = data[ob.name][0]
-        else: continue
-        if not data[ob.name][0]: continue
-        try:
-            tex_name = data[ob.name][mat_name][i]
-            mat = bpy.data.materials.get(mat_name)
-            if mat is None: mat = bpy.data.materials.new(name=mat_name)
-            if ob.data.materials:
-                ob.data.materials[0] = mat
-            else:
-                ob.data.materials.append(mat)
-                
-            mat.use_nodes = True
-            bsdf = mat.node_tree.nodes["Principled BSDF"]
-            texImage = mat.node_tree.nodes.new('ShaderNodeTexImage')
-            try:
-                texImage.image = bpy.data.images[os.path.basename(tex_name)]
-            except Exception as err:
-                print(err)
-                texImage.image = bpy.data.images.load(tex_name)
-            mat.node_tree.links.new(bsdf.inputs['Base Color'], texImage.outputs['Color'])
-            print(f'Set tex {tex_name} for {ob.name} in material {mat_name}')
-        except:
-            pass
-        
-
-def mods_to_json():
-    res = {}
-    for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
-        res[ob.name] = []
-        for mSrc in ob.modifiers:
-            res[ob.name].append(mSrc.name)
-    return res
-
-def apply_armatures():
-    res = mods_to_json()
-    bpy.ops.object.mode_set(mode='OBJECT')
-    bpy.ops.object.select_all(action='DESELECT')
-    for obname in res:
-        ob = bpy.context.scene.objects[obname]  
-        bpy.context.view_layer.objects.active = ob
-        mod_name = res[obname][0]
-        bpy.ops.object.modifier_copy(modifier=mod_name)
-        bpy.ops.object.modifier_apply(modifier=mod_name)
-        bpy.ops.object.select_all(action='DESELECT')
-    for arm in [ob for ob in bpy.data.objects if ob.type == 'ARMATURE']:
-        bpy.context.view_layer.objects.active = arm
-        bpy.ops.object.mode_set(mode='POSE')
-        bpy.ops.pose.armature_apply(selected=False)
-        bpy.ops.object.mode_set(mode='OBJECT')
-
-#move_bone('Skl_Root', [0,-0.343088,0], 140)
-
-def test():
-    scale_bones(['Arm_1_L','Arm_1_R','Clavicle_Assist_L','Clavicle_Assist_R','','','Clavicle_L','Clavicle_R','','',''], [1,1.5,1.5])
-    scale_bones(['Elbow_L','Elbow_R','Arm_2_L','Arm_2_R','Wrist_L','Wrist_R','Wrist_Assist_R','Wrist_Assist_L','','',''], [1,1.3,1.3])
-    scale_bones(['Spine_2','Spine_1','Neck','Leg_1_L','Leg_1_R','Leg_2_L','Leg_2_R','Knee_L','Knee_R','',''], [1.25,1,1.25])
-    scale_bones(['Ankle_L','Ankle_R','Ankle_Assist_R','','','','','','','Ankle_Assist_L',''], [1.25,1,1.25])
-
-    apply_armatures()
-
-#test()
+            
