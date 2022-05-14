@@ -4,7 +4,7 @@ import json
 import os
 os.system('cls')
 for mat in bpy.data.materials: # fix transparent materials
-	mat.blend_method = 'OPAQUE'
+    mat.blend_method = 'OPAQUE'
 
 def dict_to_file(file, x, sort_keys=True, indent=4):
     """Dump dictionary to json file"""
@@ -21,23 +21,23 @@ def rev_json(data):
     return {item : key for key, item in data.items()}
 
 def scene_to_json(dest_file):
-	"""Backup all meshes location, rotation and scales to json file"""
-	res = {}
-	for ob in [ob for ob in bpy.data.objects if ob.type=='MESH']:
-		if '.' in ob.name:
-			name = ob.name[:-4]
-		else:
-			name = ob.name
-		if name not in res:
-			res[name] = []
-		tmp = {
-			"location": [x for x in ob.location],
-			"rotation": [x for x in ob.rotation_euler],
-			"scale": [x for x in ob.scale]
-		}
-		res[name].append(tmp)
-	with open(dest_file, 'w') as fp:
-		json.dump(res, fp)
+    """Backup all meshes location, rotation and scales to json file"""
+    res = {}
+    for ob in [ob for ob in bpy.data.objects if ob.type=='MESH']:
+        if '.' in ob.name:
+            name = ob.name[:-4]
+        else:
+            name = ob.name
+        if name not in res:
+            res[name] = []
+        tmp = {
+            "location": [x for x in ob.location],
+            "rotation": [x for x in ob.rotation_euler],
+            "scale": [x for x in ob.scale]
+        }
+        res[name].append(tmp)
+    with open(dest_file, 'w') as fp:
+        json.dump(res, fp)
 
 def reset_broken_mats():
     """fix transparent materials"""
@@ -45,7 +45,7 @@ def reset_broken_mats():
         mat.blend_method = 'OPAQUE'
 
 def move_objects(objs, wector):
-	"""Move list of objects by vector"""
+    """Move list of objects by vector"""
     for ob in objs:
         if wector:
             ob.location.x += float(wector[0])
@@ -53,7 +53,7 @@ def move_objects(objs, wector):
             ob.location.z += float(wector[2])
 
 def separate_by_materials(objs=None):
-	"""Select objects, go to edit mode, select all, split by materials"""
+    """Select objects, go to edit mode, select all, split by materials"""
     if objs is None:
         objs = [ob for ob in bpy.data.objects if ob.type=='MESH']
     if objs:
@@ -68,7 +68,7 @@ def separate_by_materials(objs=None):
         bpy.ops.object.mode_set(mode='OBJECT')
 
 def merge_objs(objs, rename_uvs=True):
-	"""Merge objects from provided list"""
+    """Merge objects from provided list"""
     bpy.ops.object.select_all(action='DESELECT')
     if len(objs) >= 2: 
         if rename_uvs:
@@ -85,14 +85,14 @@ def merge_all_objs():
     merge_objs(objs)
 
 def scale_scene(w):
-	"""Scale all objects in a scene then scale them"""
+    """Scale all objects in a scene then scale them"""
     bpy.ops.object.select_all(action='DESELECT')
     bpy.ops.object.select_all(action='SELECT')
     bpy.ops.transform.resize(value=w, orient_type='GLOBAL', orient_matrix=((1, 0, 0), (0, 1, 0), (0, 0, 1)), orient_matrix_type='GLOBAL', mirror=True, use_proportional_edit=False, proportional_edit_falloff='SMOOTH', proportional_size=1, use_proportional_connected=False, use_proportional_projected=False)
     bpy.ops.object.select_all(action='DESELECT')
 
 def apply_transform(objs=None):
-	"""Apply all transforms to list of objects"""
+    """Apply all transforms to list of objects"""
     bpy.ops.object.select_all(action='DESELECT')
     if objs is None: objs = [ob for ob in bpy.data.objects if ob.type == 'MESH']
     if not objs: return
@@ -103,12 +103,12 @@ def apply_transform(objs=None):
     bpy.ops.object.select_all(action='DESELECT')
 
 def file_to_md5(file):
-	"""Return MD5 hash of a file in hex format"""
+    """Return MD5 hash of a file in hex format"""
     with open(file, 'rb') as f:
         return hashlib.md5(f.read()).hexdigest().upper() 
 
 def fix_dds_textures(main_path):
-	"""Change all materials primary dds image (if exists) to png file named by dds file MD5 hash"""
+    """Change all materials primary dds image (if exists) to png file named by dds file MD5 hash"""
     for mat in bpy.data.materials:
         mat.blend_method = 'OPAQUE'
     for mat in [mat for mat in bpy.data.materials if  mat and mat.node_tree]:
@@ -125,14 +125,14 @@ def fix_dds_textures(main_path):
                 mat.name = tex_name[:-4]
   
 def meshes_to_tex_names():
-	"""Rename objects to the image from the first found material slot"""
+    """Rename objects to the image from the first found material slot"""
     for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
         for mat_slot in [mat_slot for mat_slot in ob.material_slots if mat_slot and mat_slot.material.node_tree]:
             for t in [os.path.basename(x.image.filepath) for x in mat_slot.material.node_tree.nodes if x.type=='TEX_IMAGE' and not '.0' in x.name]:
                 ob.name = t
 
 def merge_by_names():
-	"""Merge all duplicated mesh objects on the scene"""
+    """Merge all duplicated mesh objects on the scene"""
     for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH' and not '.0' in ob.name]:
         objs = [ob1 for ob1 in bpy.data.objects if ob1.type == 'MESH' and ob1.name.startswith(ob.name)]
         merge_objs(objs)
@@ -144,7 +144,7 @@ def merge_by_names():
 
 
 def transform_by_ob(obname):
-	"""Transform entire scene by a specific object"""
+    """Transform entire scene by a specific object"""
     root_ob = bpy.data.objects[obname]
     wector = [float(root_ob.location.x), float(root_ob.location.y), float(root_ob.location.z)]
     objs = [ob for ob in bpy.data.objects if ob.type == 'MESH']
@@ -152,7 +152,7 @@ def transform_by_ob(obname):
     #apply_transform()
 
 def leave_1_mat():
-	"""Remove all materials slots from meshes, except for the last one"""
+    """Remove all materials slots from meshes, except for the last one"""
     bpy.ops.object.select_all(action='DESELECT')
     for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
          size = len([mat_slot for mat_slot in ob.material_slots])
@@ -297,7 +297,7 @@ def merge_uvs(objs=None):
             uvmap.name = 'UVMap'
 
 def separate_by_materials(objs=None):
-	"""Select objects, go to edit mode, select all, split by materials"""
+    """Select objects, go to edit mode, select all, split by materials"""
     if objs is None:
         objs = [ob for ob in bpy.data.objects if ob.type=='MESH']
     if objs:
