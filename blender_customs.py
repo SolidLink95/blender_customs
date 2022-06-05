@@ -1,5 +1,6 @@
 import hashlib
 import bpy
+import sys
 import json
 import os
 os.system('cls')
@@ -133,11 +134,13 @@ def meshes_to_tex_names():
 
 def merge_by_names():
     """Merge all duplicated mesh objects on the scene"""
-    for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH' and not '.0' in ob.name]:
+    for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH' and ob.name.count('.') > 1]:
+        ob.name = ob.name.split('.')[0]
+    for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH' and '.' not in ob.name[-4:]]:
         objs = [ob1 for ob1 in bpy.data.objects if ob1.type == 'MESH' and ob1.name.startswith(ob.name)]
         merge_objs(objs)
-    for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH' and '.0' in ob.name]:
-        ob.name = ob.name[:-4] # Remove all .xxx from object names
+    for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH' and '.' in ob.name[-4:]]:
+        ob.name = ob.name.split('.')[0] # Remove all .xxx from object names
     for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
         ob.data.name = ob.name # Rename meshes to objects names
     
@@ -285,8 +288,8 @@ def normalize_vgs():
                 vg_to_merge = ob.vertex_groups.get(f'{vg.name}.{str(i).zfill(3)}')
                 if vg_to_merge:
                     merge_n_remove(ob, vg_to_merge.name, vg.name)
-                else:
-                    break
+                #else:
+                #    break
 
 def merge_uvs(objs=None):
     """Renames all UV maps for all mesh objects. Useful for objects merging"""
@@ -382,9 +385,9 @@ def scale_bones(bones, scales, arm=None, inherit_scale=False):
     """Scale bones from list by given vector of floats"""
     if len(scales) >= 3:
         if arm is None:
-                arms = [ob for ob in bpy.data.objects if ob.type == 'ARMATURE']
-            else:
-                arms = [arm]
+            arms = [ob for ob in bpy.data.objects if ob.type == 'ARMATURE']
+        else:
+            arms = [arm]
         for a in arms:
             for bone in a.data.bones:
                 bone.use_inherit_scale = inherit_scale
