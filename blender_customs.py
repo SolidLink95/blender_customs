@@ -4,8 +4,8 @@ import sys
 import json
 import os
 os.system('cls')
-for mat in bpy.data.materials: # fix transparent materials
-    mat.blend_method = 'OPAQUE'
+#for mat in bpy.data.materials: # fix transparent materials
+ #   mat.blend_method = 'OPAQUE'
 
 def dict_to_file(file, x, sort_keys=True, indent=4):
     """Dump dictionary to json file"""
@@ -25,10 +25,7 @@ def scene_to_json(dest_file):
     """Backup all meshes location, rotation and scales to json file"""
     res = {}
     for ob in [ob for ob in bpy.data.objects if ob.type=='MESH']:
-        if '.' in ob.name:
-            name = ob.name[:-4]
-        else:
-            name = ob.name
+        name = ob.name[:-4] if '.' in ob.name else ob.name
         if name not in res:
             res[name] = []
         tmp = {
@@ -131,6 +128,7 @@ def meshes_to_tex_names():
         for mat_slot in [mat_slot for mat_slot in ob.material_slots if mat_slot and mat_slot.material.node_tree]:
             for t in [os.path.basename(x.image.filepath) for x in mat_slot.material.node_tree.nodes if x.type=='TEX_IMAGE' and not '.0' in x.name]:
                 ob.name = t
+                ob.data.name = t
 
 def merge_by_names():
     """Merge all duplicated mesh objects on the scene"""
@@ -150,6 +148,7 @@ def transform_by_ob(obname):
     """Transform entire scene by a specific object"""
     root_ob = bpy.data.objects[obname]
     wector = [float(root_ob.location.x), float(root_ob.location.y), float(root_ob.location.z)]
+    wector = [x*(-1) for x in wector]
     objs = [ob for ob in bpy.data.objects if ob.type == 'MESH']
     move_objects(objs, wector)
     #apply_transform()
@@ -160,10 +159,8 @@ def leave_1_mat():
     for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
          size = len([mat_slot for mat_slot in ob.material_slots])
          if size > 1:
-             bpy.context.view_layer.objects.active = ob
              for i in range(size-1):
-                 bpy.context.object.active_material_index = 0 #select the top material
-                 bpy.ops.object.material_slot_remove() #delete it
+                ob.data.materials.pop()
                  
 
 
@@ -224,10 +221,7 @@ def merge_vgs(ob, vgname1, vgname2):
 
 def merge_n_remove(obname, vgname1, vgname2):
     """Merge vertex groups then remove the first one"""
-    if isinstance(obname, str):
-        ob = bpy.data.objects[obname]  
-    else:
-        ob = obname
+    ob = bpy.data.objects[obname] if isinstance(obname, str) else obname 
     if ob is not None: 
         merge_vgs(ob, vgname1, vgname2)
         vgn = ob.vertex_groups.get(vgname1)
@@ -236,10 +230,7 @@ def merge_n_remove(obname, vgname1, vgname2):
 
 def set_weight(obname, vgname2, WEIGHT):
     """Set specified weight for all vertices in given mesh object"""
-    if isinstance(obname, str):
-        ob = bpy.data.objects.get(obname)  
-    else:
-        ob = obname
+    ob = bpy.data.objects[obname] if isinstance(obname, str) else obname 
     if ob is None:
         print(f'No object named {obname} found in the scene, exiting')
     else:
@@ -396,21 +387,48 @@ def scale_bones(bones, scales, arm=None, inherit_scale=False):
     else:
         print(f'Vector {str(scales)} is invalid')
         
-def apply_arm_changes(arm):
+def apply_arm_changes(arm, Context=None):
     """Duplicate armature modifier in mesh objects tied linked to arm armature, apply it,
     then set pose as rest pose"""
     objs = get_meshes_by_armature(arm)
     bpy.ops.object.mode_set(mode='OBJECT')
     bpy.ops.object.select_all(action='DESELECT')
-    for ob in objs:
-        mods = [m for m in ob.modifiers if m.type == 'ARMATURE']
-        if mods:
-            bpy.context.view_layer.objects.active = ob
+    if Context is None: # Context==bpy.context
+        """If context is default"""
+        for ob in objs:
+            mods = [m for m in ob.modifiers if m.type == 'ARMATURE']
+            if mods:
+                bpy.context.view_layer.objects.active = ob
+                ob.select_set(True)
+                bpy.ops.object.modifier_copy(modifier=mods[0].name)
+                mods_upd = [m for m in ob.modifiers if m.type == 'ARMATURE']
+                bpy.ops.object.modifier_apply(modifier=mods_upd[0].name)
+                ob.select_set(False)
+    else:
+        """A wacky workaround when fuction used in UI. Backs up all modifiers to dict,
+        removes non-armature modifiers, applies the rest, then restores modifiers"""
+        mods = {} # used for modifiers backup
+        for ob in objs:
+            mods[ob] = {}
+            for m in ob.modifiers:
+                mods[ob][m.name] = {}
+                properties = [p.identifier for p in m.bl_rna.properties if not p.is_readonly]
+                mods[ob][m.name]['Properties'] = {prop:getattr(m, prop) for prop in properties}
+                mods[ob][m.name]['Type'] = m.type
+            for m in [m for m in ob.modifiers if m.type != 'ARMATURE']:
+                ob.modifiers.remove(m) # remove non-armature modifiers
+            Context.view_layer.objects.active = ob # doesnt work with UI, but it stays nonetheless
             ob.select_set(True)
-            bpy.ops.object.modifier_copy(modifier=mods[0].name)
-            mods_upd = [m for m in ob.modifiers if m.type == 'ARMATURE']
-            bpy.ops.object.modifier_apply(modifier=mods_upd[0].name)
-            ob.select_set(False)
+        bpy.ops.object.convert(target='MESH') # Applies all modifiers
+        bpy.ops.object.select_all(action='DESELECT')
+        for ob, item in mods.items(): # restore from backup
+            for mod_name, data in item.items():
+                mod_new = ob.modifiers.new(mod_name, data['Type'])
+                for prop, attr in data['Properties'].items():
+                    setattr(mod_new, prop, attr) # restore modifier's original attributes
+    bpy.ops.object.select_all(action='DESELECT')
+    # Apply pose as rest pose for armature arm
+    arm.select_set(True)
     bpy.context.view_layer.objects.active = arm
     bpy.ops.object.mode_set(mode='POSE')
     bpy.ops.pose.armature_apply(selected=False)
@@ -425,4 +443,15 @@ def textures_to_dict():
         for mat_slot in [mat_slot for mat_slot in ob.material_slots if mat_slot and mat_slot.material.node_tree]:
             res[ob.name][mat_slot.material.name] = [x.image.filepath for x in mat_slot.material.node_tree.nodes if x.type=='TEX_IMAGE']              
     return res
-            
+
+
+def remove_all(excluded=['scenes', 'texts']):
+    """Remove images, armatures, materials, meshes, objects, textures from scene"""
+    for asset_type in ['images','armatures','materials','meshes','objects','textures']:
+        if not asset_type in excluded:
+            data = getattr(bpy.data, asset_type)
+            try:
+                for elem in data:
+                    data.remove(elem)
+            except:
+                print('Skipping asset: {}'.format(asset_type))
