@@ -82,12 +82,14 @@ def merge_all_objs():
     objs = [ob for ob in bpy.data.objects if ob.type=='MESH']
     merge_objs(objs)
 
-def scale_scene(w):
+def scale_scene(w, Context=None):
     """Scale all objects in a scene then scale them"""
     bpy.ops.object.select_all(action='DESELECT')
+    
     bpy.ops.object.select_all(action='SELECT')
     bpy.ops.transform.resize(value=w, orient_type='GLOBAL', orient_matrix=((1, 0, 0), (0, 1, 0), (0, 0, 1)), orient_matrix_type='GLOBAL', mirror=True, use_proportional_edit=False, proportional_edit_falloff='SMOOTH', proportional_size=1, use_proportional_connected=False, use_proportional_projected=False)
     bpy.ops.object.select_all(action='DESELECT')
+    
 
 def apply_transform(objs=None):
     """Apply all transforms to list of objects"""
