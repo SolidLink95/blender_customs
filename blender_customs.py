@@ -45,10 +45,10 @@ def reset_broken_mats():
 def move_objects(objs, wector):
     """Move list of objects by vector"""
     for ob in objs:
-        if wector:
-            ob.location.x += float(wector[0])
-            ob.location.y += float(wector[1])
-            ob.location.z += float(wector[2])
+        #if wector:
+        ob.location.x += float(wector[0])
+        ob.location.y += float(wector[1])
+        ob.location.z += float(wector[2])
 
 def separate_by_materials(objs=None):
     """Select objects, go to edit mode, select all, split by materials"""
@@ -129,12 +129,12 @@ def meshes_to_tex_names():
     for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
         for mat_slot in [mat_slot for mat_slot in ob.material_slots if mat_slot and mat_slot.material.node_tree]:
             for t in [os.path.basename(x.image.filepath) for x in mat_slot.material.node_tree.nodes if x.type=='TEX_IMAGE' and not '.0' in x.name]:
-                ob.name = t
-                ob.data.name = t
+                ob.name = t.split('.')[0] if '.' in t else t
+                ob.data.name = t.split('.')[0] if '.' in t else t
 
 def merge_by_names():
     """Merge all duplicated mesh objects on the scene"""
-    for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH' and ob.name.count('.') > 1]:
+    for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH' and '.' in ob.name]:
         ob.name = ob.name.split('.')[0]
     for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH' and '.' not in ob.name[-4:]]:
         objs = [ob1 for ob1 in bpy.data.objects if ob1.type == 'MESH' and ob1.name.startswith(ob.name)]
@@ -358,10 +358,7 @@ def rotate_bone(bones, angles, arm=None, apply_rest=False, rot_mode='XYZ'):
     bpy.ops.object.mode_set(mode='OBJECT')
     bpy.ops.object.select_all(action='DESELECT')
     if len(angles) >= 3:
-        if arm is None:
-            arms = [ob for ob in bpy.data.objects if ob.type == 'ARMATURE']
-        else:
-            arms = [arm]
+        arms = [ob for ob in bpy.data.objects if ob.type == 'ARMATURE'] if arm is None else [arm]
         for armature in arms:
             bpy.context.view_layer.objects.active = armature
             bpy.ops.object.mode_set(mode='POSE')
@@ -377,10 +374,7 @@ def rotate_bone(bones, angles, arm=None, apply_rest=False, rot_mode='XYZ'):
 def scale_bones(bones, scales, arm=None, inherit_scale=False):
     """Scale bones from list by given vector of floats"""
     if len(scales) >= 3:
-        if arm is None:
-            arms = [ob for ob in bpy.data.objects if ob.type == 'ARMATURE']
-        else:
-            arms = [arm]
+        arms = [ob for ob in bpy.data.objects if ob.type == 'ARMATURE'] if arm is None else [arm]
         for a in arms:
             for bone in a.data.bones:
                 bone.use_inherit_scale = inherit_scale
@@ -449,7 +443,7 @@ def textures_to_dict():
 
 def remove_all(excluded=['scenes', 'texts']):
     """Remove images, armatures, materials, meshes, objects, textures from scene"""
-    for asset_type in ['images','armatures','materials','meshes','objects','textures']:
+    for asset_type in ['images','armatures','materials','meshes','objects','textures','actions']:
         if not asset_type in excluded:
             data = getattr(bpy.data, asset_type)
             try:
