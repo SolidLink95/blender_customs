@@ -123,6 +123,17 @@ def fix_dds_textures(main_path):
                     im = bpy.data.images.load(tex_fullpath)
                 x.image = im
                 mat.name = tex_name[:-4]
+
+def meshes_to_texture_md5():
+    """Renames meshes to md5 hash of dds texture assigned to its material. 
+    Meshes with no materials or with materials with no dds images are skipped."""
+    for ob in [ob for ob in bpy.data.objects if ob.type == 'MESH']:
+        for mat_slot in [mat_slot for mat_slot in ob.material_slots if mat_slot and mat_slot.material.node_tree]:
+            for t in [x.image.filepath for x in mat_slot.material.node_tree.nodes if x.type=='TEX_IMAGE' and '.0' not in x.name]:
+                if os.path.exists(t):
+                    HASH = file_to_md5(t)
+                    ob.name = HASH
+                    ob.data.name = HASH
   
 def meshes_to_tex_names():
     """Rename objects to the image from the first found material slot"""

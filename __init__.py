@@ -12,7 +12,7 @@ BLANK_TUPLE = (('None','',''),)
 bl_info = {
 	"name": "Blender Customs",
 	"author": "banan039",
-	"version": (0, 0, 1),
+	"version": (0, 0, 2),
 	"blender": (2, 90, 0),
 	"category": "Import",
 	"location": "Object properties",
@@ -51,6 +51,21 @@ class Buttons_Local:
                 transfer_weights_from_dict(ff,arm1,arm2)
             return {'FINISHED'}
         
+    
+    class rename_meshes_to_md5_dds_OT_op(Operator):
+        bl_idname = 'rename_meshes_to_md5_dds.vgs_op'
+        bl_label = 'Renaming meshes to md5 hash of dds texture. Proceed?'
+        bl_description = """Renames meshes to md5 hash of dds texture assigned to its material. 
+                            Meshes with no materials or with materials with no dds images are skipped."""
+        
+        def execute(self, context):
+            meshes_to_texture_md5()
+            return {'FINISHED'}
+        
+        def invoke(self, context, event):
+            return context.window_manager.invoke_props_dialog(self)
+    
+    
     class clear_scene_OT_vgs_op(Operator):
         bl_idname = 'clear_scene.vgs_op'
         bl_label = 'This operation CANNOT be undone! Proceed?'
@@ -377,6 +392,7 @@ class MainPanel(Panel):
         row = layout.row()
         row.operator(Buttons_Local.normalize_vgs_OT_vgs_op.bl_idname, text="Normalize vertex groups")
         row = layout.row()
+        row.operator(Buttons_Local.rename_meshes_to_md5_dds_OT_op.bl_idname, text="Rename meshes to dds md5")
         row.operator(Buttons_Local.meshes_to_images_OT_vgs_op.bl_idname, text="Rename meshes to images")
         row = layout.row()
         row.operator(Buttons_Local.split_objs_by_material_OT_vgs_op.bl_idname, text="Split meshes by materials")
